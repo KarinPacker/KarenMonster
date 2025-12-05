@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeMon: Your Coding Companion</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Changed to min-height for mobile scrolling */
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            background-color: #252526;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 350px; /* Responsive width */
+        }
+
+        h1 { color: #61dafb; margin-bottom: 5px;}
+
+        /* Streak Display */
+        .streak-box {
+            background-color: #3e3e42;
+            color: #ffaa00;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        #pet-display {
+            font-size: 100px;
+            margin: 10px 0;
+            animation: bounce 2s infinite;
+            cursor: pointer; /* Click to pet! */
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .stats { margin-bottom: 15px; font-size: 14px; }
+
+        .progress-container {
+            background-color: #444;
+            border-radius: 10px;
+            height: 20px;
+            width: 100%;
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #progress-fill {
+            background-color: #4caf50;
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        input {
+            padding: 12px;
+            border-radius: 5px;
+            border: none;
+            width: 80%;
+            margin-bottom: 10px;
+            background-color: #3c3c3c;
+            color: white;
+            font-family: inherit;
+        }
+
+        button {
+            padding: 12px 25px;
+            border-radius: 5px;
+            border: none;
+            background-color: #0e639c;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover { background-color: #1177bb; }
+        
+        .reset-btn {
+            background-color: transparent; 
+            color: #666; 
+            margin-top: 20px; 
+            font-size: 12px;
+            width: auto;
+        }
+        .reset-btn:hover { background-color: transparent; color: #d9534f; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>CodeMon</h1>
+        
+        <div class="streak-box">
+            🔥 Streak: <span id="streak-display">0</span> Days
+        </div>
+
+        <div id="pet-display" onclick="petClick()">🥚</div>
+        <h3 id="pet-name">Level 1: The Egg</h3>
+
+        <div class="stats">
+            Total XP: <span id="xp-display">0</span>
+        </div>
+
+        <div class="progress-container">
+            <div id="progress-fill"></div>
+        </div>
+        
+        <p style="font-size: 0.9em; opacity: 0.8;">Log your coding session:</p>
+        <input type="number" id="minutes" placeholder="Minutes spent coding">
+        <input type="number" id="lines" placeholder="Lines of code written">
+        <button onclick="feedPet()">Feed Code</button>
+        
+        <button onclick="resetPet()" class="reset-btn">Reset Pet</button>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        let currentXP = 0;
+        let streak = 0;
+        let lastLogDate = "";
+
+        // --- LOAD DATA ---
+        if(localStorage.getItem('codemonXP')) {
+            currentXP = parseInt(localStorage.getItem('codemonXP'));
+            streak = parseInt(localStorage.getItem('codemonStreak')) || 0;
+            lastLogDate = localStorage.getItem('codemonLastDate') || "";
+        }
+
+        // --- UPDATE UI ---
+        const updatePetVisuals = () => {
+            const petDisplay = document.getElementById('pet-display');
+            const nameDisplay = document.getElementById('pet-name');
+            const progressFill = document.getElementById('progress-fill');
+            const xpDisplay = document.getElementById('xp-display');
+            const streakDisplay = document.getElementById('streak-display');
+
+            xpDisplay.innerText = Math.floor(currentXP);
+            streakDisplay.innerText = streak;
+
+            // Progress Bar Logic (Scales every 1000 XP)
+            let percentage = (currentXP % 1000) / 10; 
+            // If we are over 1000, bar fills based on modulo
+            if(percentage === 0 && currentXP > 0) percentage = 100;
+            progressFill.style.width = percentage + '%';
+
+            // Evolution Logic
+            if (currentXP < 100) {
+                petDisplay.innerText = "🥚";
+                nameDisplay.innerText = "Level 1: The Egg";
+            } else if (currentXP < 300) {
+                petDisplay.innerText = "🐛";
+                nameDisplay.innerText = "Level 2: The Bug";
+            } else if (currentXP < 600) {
+                petDisplay.innerText = "🤖";
+                nameDisplay.innerText = "Level 3: The Bot";
+            } else if (currentXP < 1000) {
+                petDisplay.innerText = "🦄";
+                nameDisplay.innerText = "Level 4: The Unicorn";
+            } else {
+                petDisplay.innerText = "🐉";
+                nameDisplay.innerText = "Level 5: The Dragon";
+            }
+        }
+
+        // --- CORE LOGIC ---
+        function feedPet() {
+            const minutes = parseInt(document.getElementById('minutes').value) || 0;
+            const lines = parseInt(document.getElementById('lines').value) || 0;
+
+            if (minutes === 0 && lines === 0) {
+                alert("Please enter some stats!");
+                return;
+            }
+
+            // 1. Calculate XP
+            const gainedXP = minutes + (lines * 0.5);
+            currentXP += gainedXP;
+
+            // 2. Calculate Streak
+            checkStreak();
+
+            // 3. Save Data
+            saveData();
+
+            // 4. Clear Inputs & Update
+            document.getElementById('minutes').value = '';
+            document.getElementById('lines').value = '';
+            updatePetVisuals();
+            
+            // Simple Animation trigger
+            const pet = document.getElementById('pet-display');
+            pet.style.transform = "scale(1.2)";
+            setTimeout(() => pet.style.transform = "scale(1)", 200);
+        }
+
+        function checkStreak() {
+            const today = new Date().toDateString(); // e.g., "Fri Dec 05 2025"
+            
+            if (lastLogDate === today) {
+                // Already logged today, do nothing to streak
+                return;
+            }
+
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (lastLogDate === yesterday.toDateString()) {
+                // Logged yesterday, so increment streak
+                streak++;
+            } else {
+                // Missed more than one day (or first time)
+                streak = 1;
+            }
+            
+            // Update the last log date to today
+            lastLogDate = today;
+        }
+
+        function saveData() {
+            localStorage.setItem('codemonXP', currentXP);
+            localStorage.setItem('codemonStreak', streak);
+            localStorage.setItem('codemonLastDate', lastLogDate);
+        }
+
+        function resetPet() {
+            if(confirm("Reset everything? Your pet and streak will be gone.")) {
+                localStorage.clear();
+                currentXP = 0;
+                streak = 0;
+                lastLogDate = "";
+                updatePetVisuals();
+            }
+        }
+        
+        function petClick() {
+            alert("Your pet looks happy to see you code!");
+        }
+
+        // Initialize on load
+        updatePetVisuals();
+    </script>
+</body>
+</html>
